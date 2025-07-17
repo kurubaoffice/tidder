@@ -1,0 +1,9 @@
+nsepython
+yfinance
+pandas
+numpy
+matplotlib
+pandas-ta
+python-telegram-bot
+twilio
+python-dotenv
