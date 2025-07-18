@@ -2,7 +2,7 @@ import os
 import pandas as pd
 from modules.utils.telegram_bot import send_message
 
-def interpret_indicators(rsi, macd, macd_signal, supertrend_dir=None, adx=None):
+def interpret_indicators(rsi, macd, macd_signal, supertrend_dir=None, adx=None, atr=None):
     sentiment = []
 
     # RSI Interpretation
@@ -37,6 +37,15 @@ def interpret_indicators(rsi, macd, macd_signal, supertrend_dir=None, adx=None):
             sentiment.append(f"ADX ({adx:.2f}): Developing trend – Growing strength")
         else:
             sentiment.append(f"ADX ({adx:.2f}): Strong trend – Trend strength is high")
+
+    #ATR interpretation
+    if atr is not None and not pd.isna(atr):
+        if atr < 1:
+            sentiment.append(f"ATR ({atr:.2f}): Low volatility – Stable price")
+        elif atr < 5:
+            sentiment.append(f"ATR ({atr:.2f}): Moderate volatility – Watch for swings")
+        else:
+            sentiment.append(f"ATR ({atr:.2f}): High volatility – Risky movement")
 
     return "\n".join(sentiment)
 
@@ -111,7 +120,8 @@ def generate_report(symbol, company_csv_path=None, tech_csv_path=None):
         if isinstance(supertrend_val, str):
             supertrend_val = supertrend_val.lower() == 'true'
         adx = float(tech_row.get("adx", "nan"))
-        indicator_summary = interpret_indicators(round(rsi, 2), round(macd, 2), round(macd_signal, 2), supertrend_val, round(adx, 2))
+        atr = float(tech_row.get("atr_14", "nan"))  # or adjust to "atr_14" if needed
+        indicator_summary = interpret_indicators(round(rsi, 2), round(macd, 2), round(macd_signal, 2), supertrend_val, round(adx, 2),  round(atr, 2))
     except:
         indicator_summary = "N/A"
 
@@ -135,10 +145,10 @@ RSI (14):            {round(float(tech_row.get('rsi_14', 0.0)), 2)}
 MACD:                {round(float(tech_row.get('macd', 0.0)), 2)}
 MACD Signal:         {round(float(tech_row.get('macd_signal', 0.0)), 2)}
 Supertrend:          {'Buy' if supertrend_val else 'Sell' if supertrend_val is not None else 'N/A'}
-ADX (14):            {round(float(tech_row.get('adx', 0.0)), 2)}
+ADX (trend strength):{round(float(tech_row.get('adx', 0.0)), 2)}
 Bollinger Upper:     {round(float(tech_row.get('bb_upper', 0.0)), 2)}
 Bollinger Lower:     {round(float(tech_row.get('bb_lower', 0.0)), 2)}
-ATR:                 {round(float(tech_row.get('atr', 0.0)), 2)}
+ATR (Volatility):    {round(float(tech_row.get('atr_14', 0.0)), 2)}
 
 📊 Technical Summary:
 {indicator_summary}

@@ -143,13 +143,14 @@ def apply_all_indicators(df: pd.DataFrame, indicators=None, config=None) -> pd.D
     adx_indicator = ADXIndicator(high=df["high"], low=df["low"], close=df["close"], window=14)
     df["adx"] = adx_indicator.adx()
 
-    # ATR
-    if 'atr' in indicators and all(col in df.columns for col in ['high', 'low', 'close']):
-        atr_period = config.get("atr_period", 14)
-        if len(df) >= atr_period:
-            df[f"atr_{atr_period}"] = ta.volatility.AverageTrueRange(high=df['high'], low=df['low'], close=df['close'], window=atr_period).average_true_range()
-        else:
-            df[f"atr_{atr_period}"] = None
+    # ATR (14-period)
+    df["tr"] = df[["high", "low", "close"]].copy().apply(
+        lambda row: max(row["high"] - row["low"],
+                        abs(row["high"] - row["close"]),
+                        abs(row["low"] - row["close"])), axis=1
+    )
+    df["atr_14"] = df["tr"].rolling(window=14).mean()
+    df.drop(columns=["tr"], inplace=True)
 
     # Supertrend
     if 'supertrend' in indicators and all(col in df.columns for col in ['high', 'low', 'close']):
