@@ -1,43 +1,28 @@
 import sys
 import os
 
-# Ensure project root is in the path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from modules.data_fetcher.fetch_companies import get_all_companies
-from modules.data_fetcher.snapshot_indices import snapshot_all_indices  # Uncomment when ready
 from modules.data_fetcher.fetch_company_info import fetch_company_info
+from modules.indicators.indicators import process_and_save_indicators
 from modules.reports.generate_stock_report import generate_reports_for_symbols
 
 def main():
-    # Fetch all companies (Main board + SME)
-   # main_df, sme_df = get_all_companies()
-
-    #print(f"Fetched {len(main_df)} main board companies.")
-    #print(main_df.head())
-
-    #print(f"\nFetched {len(sme_df)} SME companies.")
-    #print(sme_df.head())
-
-    # --- Optional: Add snapshot functionality ---
-   # snapshot_all_indices()
     symbols = ["EPACK"]
-    results = []
 
+    # Step 1: Process indicators (fetches OHLCV, calculates indicators, saves to CSV)
     for symbol in symbols:
-        print(f"Fetching info: {symbol}")
-        info = fetch_company_info(symbol)
-        if info:
-            results.append(info)
+        print(f"[1] Processing indicators for {symbol}")
+        process_and_save_indicators(symbol)  # <--- This MUST be called BEFORE generating reports
 
+    # Step 2: Fetch and store company info
+    for symbol in symbols:
+        print(f"[2] Fetching company info for {symbol}")
+        fetch_company_info(symbol)
 
-
-    from modules.reports.generate_stock_report import generate_report
-    report = generate_report("EPACK")
-    if report:
-        print(report)
-    stock_list = ["EPACK"]
-    generate_reports_for_symbols(stock_list, send_to_telegram=True)
+    # Step 3: Generate and send reports
+    print(f"[3] Generating and sending report...")
+    generate_reports_for_symbols(symbols, send_to_telegram=True)
 
 if __name__ == "__main__":
     main()
