@@ -7,3 +7,6 @@ pandas-ta
 python-telegram-bot
 twilio
 python-dotenv
+requests
+time
+nsepython
