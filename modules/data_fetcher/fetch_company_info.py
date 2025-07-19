@@ -61,6 +61,6 @@ def save_company_info(symbols):
         print("No data to save.")
 
 
-if __name__ == "__main__":
-    stock_list = ["EPACK"]  # Replace with your list
-    save_company_info(stock_list)
+#if __name__ == "__main__":
+#    stock_list = ["EPACK"]  # Replace with your list
+#   save_company_info(stock_list)
