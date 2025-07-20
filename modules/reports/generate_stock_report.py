@@ -113,6 +113,141 @@ def format_number(value):
     except:
         return "N/A"
 
+def predict_stock_signal(rsi, macd, macd_signal, supertrend_dir=None, adx=None, atr=None, bb_upper=None, bb_lower=None, close=None):
+    score = 0
+    reasons = []
+
+    # ✅ Check for missing critical values
+    indicators = [rsi, macd, macd_signal, supertrend_dir, adx, bb_upper, bb_lower, close]
+    if any(val is None or pd.isna(val) for val in indicators[:3]):  # RSI, MACD, MACD signal are minimum required
+        return "📉 No Signal: Insufficient data", ["Missing RSI/MACD data"]
+
+    # RSI
+    if rsi < 30:
+        score += 1
+        reasons.append("RSI indicates oversold")
+    elif rsi > 70:
+        score -= 1
+        reasons.append("RSI indicates overbought")
+
+    # MACD
+    if macd > macd_signal:
+        score += 1
+        reasons.append("MACD bullish crossover")
+    elif macd < macd_signal:
+        score -= 1
+        reasons.append("MACD bearish crossover")
+
+    # Supertrend
+    if supertrend_dir is not None and not pd.isna(supertrend_dir):
+        if supertrend_dir:
+            score += 1
+            reasons.append("Supertrend bullish")
+        else:
+            score -= 1
+            reasons.append("Supertrend bearish")
+
+    # ADX
+    if adx is not None and not pd.isna(adx):
+        if adx > 40:
+            score += 1
+            reasons.append("Strong trend confirmed by ADX")
+        elif adx < 20:
+            reasons.append("Weak trend by ADX")
+
+    # Bollinger Bands
+    if all(v is not None and not pd.isna(v) for v in [bb_upper, bb_lower, close]):
+        if close < bb_lower:
+            score += 1
+            reasons.append("Price below lower Bollinger Band (Oversold)")
+        elif close > bb_upper:
+            score -= 1
+            reasons.append("Price above upper Bollinger Band (Overbought)")
+
+    # Final decision
+    if score >= 3:
+        signal = "🟢 Strong Buy"
+    elif score == 2:
+        signal = "✅ Buy"
+    elif score == 1:
+        signal = "⚪ Watchlist"
+    elif score <= -2:
+        signal = "🔴 Strong Sell"
+    else:
+        signal = "⚠️ Neutral"
+
+    return signal, reasons
+
+
+def generate_verdict(rsi=None, macd=None, macd_signal=None, supertrend=None, adx=None, atr=None, bb_upper=None, bb_lower=None, close=None):
+    score = 0
+    total_possible = 0
+    comments = []
+
+    def is_valid(v):
+        return v is not None and not pd.isna(v)
+
+    # --- RSI ---
+    if is_valid(rsi):
+        total_possible += 1
+        if rsi < 30:
+            score += 1
+        elif rsi > 70:
+            score -= 1
+
+    # --- MACD ---
+    if is_valid(macd) and is_valid(macd_signal):
+        total_possible += 1
+        if macd > macd_signal:
+            score += 1
+        elif macd < macd_signal:
+            score -= 1
+
+    # --- Supertrend ---
+    if supertrend is not None:
+        total_possible += 1
+        score += 1 if supertrend else -1
+
+    # --- ADX (strength only) ---
+    if is_valid(adx):
+        total_possible += 1
+        if adx > 20:
+            score += 1
+
+    # --- Bollinger Bands ---
+    if all(is_valid(v) for v in [bb_upper, bb_lower, close]):
+        total_possible += 1
+        if close < bb_lower:
+            score += 1
+        elif close > bb_upper:
+            score -= 1
+
+    # Confidence is based on how many valid indicators were used
+    if total_possible == 0:
+        return "❓ Verdict: Not enough data for signal confidence."
+
+    confidence = round((abs(score) / total_possible) * 100)
+    signal = "Neutral"
+
+    if score >= 3:
+        signal = "🟢 Strong Buy"
+    elif score == 2:
+        signal = "🟢 Buy"
+    elif score == 1:
+        signal = "🟡 Mild Bullish"
+    elif score == 0:
+        signal = "⚪ Neutral"
+    elif score == -1:
+        signal = "🟠 Mild Bearish"
+    elif score == -2:
+        signal = "🔴 Sell"
+    elif score <= -3:
+        signal = "🔴 Strong Sell"
+
+    return f"{signal} (Confidence: {confidence}%)"
+
+
+
 def format_percentage(value):
     try:
         return f"{float(value) * 100:.2f}%"
@@ -188,6 +323,37 @@ def generate_report(symbol, company_csv_path=None, tech_csv_path=None):
             supertrend_val, adx, atr,
             bb_upper=bb_upper, bb_lower=bb_lower, close=close
         )
+        # Predict signal
+        signal, reasons = predict_stock_signal(
+            rsi=rsi,
+            macd=macd,
+            macd_signal=macd_signal,
+            supertrend_dir=supertrend_val,
+            adx=adx,
+            atr=atr,
+            bb_upper=bb_upper,
+            bb_lower=bb_lower,
+            close=close
+        )
+
+        verdict = generate_verdict(
+            rsi=rsi,
+            macd=macd,
+            macd_signal=macd_signal,
+            supertrend=supertrend_val,
+            adx=adx,
+            atr=atr,
+            bb_upper=bb_upper,
+            bb_lower=bb_lower,
+            close=close
+        )
+
+        # Append to report
+        indicator_summary += f"\n\n🔮 Signal: {signal}"
+        if reasons:
+            indicator_summary += "\n\n📌 Reason:\n" + "\n".join(f"- {r}" for r in reasons)
+        indicator_summary += f"\n\n🧠 Verdict: {verdict}"
+
     except Exception as e:
         print(f"[ERROR] Failed to interpret indicators: {e}")
         indicator_summary = "N/A"
