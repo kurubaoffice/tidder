@@ -55,10 +55,46 @@ def resolve_symbol(user_input):
         print(f"[ERROR] While resolving symbol: {e}")
         return None
 
+# ---- NEW: Async /start and /help handlers ----
+
+async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    msg = (
+        "👋 *Welcome to Tidder Bot!*\n\n"
+        "I can help you with:\n"
+        "📈 Stock analysis – `/stock ICICIBANK`\n"
+        "🔎 Just type a stock symbol, or try `/help` to see what I can do!"
+    )
+    await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="Markdown")
+
+async def handle_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    msg = (
+        "📖 *Bot Help Menu*\n\n"
+        "Here’s what you can ask me:\n"
+        "➡️ `/stock TCS` – Get technical analysis of a stock\n"
+        "➡️ `/health` – Check if bot is running\n"
+        "➡️ Just type a stock name like *INFY*, and I’ll analyze it!\n\n"
+        "🔁 I respond in real-time with predictions & indicators."
+    )
+    await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="Markdown")
+
+# ---- Main handler for all text input ----
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    text = update.message.text.strip()
+    text = update.message.text.strip().upper()
+
+    # Typing animation
+    await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+
+    if text == "/START":
+        await handle_start(update, context)
+        return
+
+    if text == "/HELP":
+        await handle_help(update, context)
+        return
 
     print(f"📩 Received from {chat_id}: {text}")
 
@@ -75,7 +111,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await context.bot.send_message(chat_id=chat_id, text=f"❌ Failed to generate report for {symbol}")
 
-
 def main():
     import os
     from dotenv import load_dotenv
@@ -83,7 +118,14 @@ def main():
 
     token = os.getenv("TELEGRAM_TOKEN")
     app = ApplicationBuilder().token(token).build()
+
+    # Command handlers
+    app.add_handler(CommandHandler("start", handle_start))
+    app.add_handler(CommandHandler("help", handle_help))
+
+    # Message handler
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+
     print("🤖 Telegram bot running...")
     app.run_polling()
 
