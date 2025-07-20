@@ -11,7 +11,7 @@ chat_id = "675105848"
 
 BASE_URL = f"https://api.telegram.org/bot{token}"
 
-def send_message(message):
+def send_message(chat_id, message):
     url = f"{BASE_URL}/sendMessage"
     payload = {
         "chat_id": chat_id,

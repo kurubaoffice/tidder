@@ -11,75 +11,90 @@ load_dotenv()
 DEFAULT_CHAT_ID = os.getenv("CHAT_ID")
 
 
+import math
+import pandas as pd
+
 def interpret_indicators(rsi, macd, macd_signal, supertrend_dir=None, adx=None, atr=None, bb_upper=None, bb_lower=None, close=None):
     sentiment = []
 
-    # RSI Interpretation
-    if rsi > 70:
-        sentiment.append(f"RSI ({rsi:.2f}): Overbought – Possible price correction")
-    elif rsi < 30:
-        sentiment.append(f"RSI ({rsi:.2f}): Oversold – Possible rebound")
-    else:
-        sentiment.append(f"RSI ({rsi:.2f}): Neutral – Stock is not overbought/oversold")
+    # Safeguard utility
+    def is_valid(val):
+        return val is not None and not pd.isna(val) and not (isinstance(val, float) and math.isnan(val))
 
-    # MACD Interpretation
-    if macd > macd_signal:
-        if macd < 0:
-            sentiment.append(f"MACD ({macd:.2f}): Bullish crossover – Negative zone, but momentum improving")
+    # --- RSI Interpretation ---
+    if is_valid(rsi):
+        if rsi > 70:
+            sentiment.append(f"RSI ({rsi:.2f}): Overbought – Possible price correction")
+        elif rsi < 30:
+            sentiment.append(f"RSI ({rsi:.2f}): Oversold – Possible rebound")
         else:
-            sentiment.append(f"MACD ({macd:.2f}): Bullish crossover – Positive zone, strong momentum")
-    elif macd < macd_signal:
-        sentiment.append(f"MACD ({macd:.2f}): Bearish crossover – Momentum weakening")
+            sentiment.append(f"RSI ({rsi:.2f}): Neutral – Stock is not overbought/oversold")
     else:
-        sentiment.append(f"MACD ({macd:.2f}): Neutral – No clear crossover")
+        sentiment.append("RSI: Data not available")
 
-    # Supertrend interpretation
+    # --- MACD Interpretation ---
+    if is_valid(macd) and is_valid(macd_signal):
+        if macd > macd_signal:
+            if macd < 0:
+                sentiment.append(f"MACD ({macd:.2f}): Bullish crossover – Negative zone, but momentum improving")
+            else:
+                sentiment.append(f"MACD ({macd:.2f}): Bullish crossover – Positive zone, strong momentum")
+        elif macd < macd_signal:
+            sentiment.append(f"MACD ({macd:.2f}): Bearish crossover – Momentum weakening")
+        else:
+            sentiment.append(f"MACD ({macd:.2f}): Neutral – No clear crossover")
+    else:
+        sentiment.append("MACD: Data not available")
+
+    # --- Supertrend Interpretation ---
     if supertrend_dir is not None:
         direction = "Bullish" if supertrend_dir else "Bearish"
         sentiment.append(f"Supertrend: {direction} Trend")
+    else:
+        sentiment.append("Supertrend: Data not available")
 
-    # ADX Interpretation
-    if adx is not None:
+    # --- ADX Interpretation ---
+    if is_valid(adx):
         if adx < 20:
             sentiment.append(f"ADX ({adx:.2f}): Weak trend – Market lacks clear direction")
         elif 20 <= adx <= 40:
             sentiment.append(f"ADX ({adx:.2f}): Developing trend – Growing strength")
         else:
             sentiment.append(f"ADX ({adx:.2f}): Strong trend – Trend strength is high")
+    else:
+        sentiment.append("ADX: Data not available")
 
-    #ATR interpretation
-    if atr is not None and not pd.isna(atr):
+    # --- ATR Interpretation ---
+    if is_valid(atr):
         if atr < 1:
             sentiment.append(f"ATR ({atr:.2f}): Low volatility – Stable price")
         elif atr < 5:
             sentiment.append(f"ATR ({atr:.2f}): Moderate volatility – Watch for swings")
         else:
             sentiment.append(f"ATR ({atr:.2f}): High volatility – Risky movement")
+    else:
+        sentiment.append("ATR: Data not available")
 
-    # Bollinger Bands Interpretation
-    last_close = close
-
-    if all(v is not None for v in [bb_upper, bb_lower, last_close]):
+    # --- Bollinger Bands Interpretation ---
+    if all(is_valid(v) for v in [bb_upper, bb_lower, close]):
         try:
-            if any(math.isnan(val) for val in [bb_upper, bb_lower, close]):
-                sentiment.append("Bollinger Bands: Incomplete data")
-            else:
-                bb_upper = round(bb_upper, 2)
-                bb_lower = round(bb_lower, 2)
-                close = round(close, 2)
+            close = round(close, 2)
+            bb_upper = round(bb_upper, 2)
+            bb_lower = round(bb_lower, 2)
 
-                if close > bb_upper:
-                    sentiment.append(f"Bollinger Bands: 🔴 Overbought (Close {close} > Upper {bb_upper})")
-                elif close < bb_lower:
-                    sentiment.append(f"Bollinger Bands: 🟢 Oversold (Close {close} < Lower {bb_lower})")
-                else:
-                    sentiment.append(f"Bollinger Bands: Within Normal Range (Close {close})")
+            if close > bb_upper:
+                sentiment.append(f"Bollinger Bands: 🔴 Overbought (Close {close} > Upper {bb_upper})")
+            elif close < bb_lower:
+                sentiment.append(f"Bollinger Bands: 🟢 Oversold (Close {close} < Lower {bb_lower})")
+            else:
+                sentiment.append(f"Bollinger Bands: Within Normal Range (Close {close})")
         except Exception:
-            sentiment.append("Bollinger Bands: Invalid or missing data")
-        else:
-            pass
+            sentiment.append("Bollinger Bands: Calculation error")
+    else:
+        sentiment.append("Bollinger Bands: Data not available")
 
     return "\n\n".join(sentiment)
+
 
 
 
@@ -143,26 +158,38 @@ def generate_report(symbol, company_csv_path=None, tech_csv_path=None):
 
     # Extract indicators for summary
     try:
-        rsi = float(tech_row.get("rsi_14", "nan"))
-        macd = float(tech_row.get("macd", "nan"))
-        macd_signal = float(tech_row.get("macd_signal", "nan"))
-        adx = float(tech_row.get("adx", "nan"))
-        atr = float(tech_row.get("atr_14", "nan"))
-        bb_upper = float(tech_row.get("bb_upper", "nan"))
-        bb_lower = float(tech_row.get("bb_lower", "nan"))
-        close = float(tech_row.get("close", "nan"))
+        def safe_float(val):
+            try:
+                fval = float(val)
+                return fval if not math.isnan(fval) else None
+            except:
+                return None
+
+        rsi = safe_float(tech_row.get("rsi_14"))
+        macd = safe_float(tech_row.get("macd"))
+        macd_signal = safe_float(tech_row.get("macd_signal"))
+        adx = safe_float(tech_row.get("adx"))
+        atr = safe_float(tech_row.get("atr_14"))
+        bb_upper = safe_float(tech_row.get("bb_upper"))
+        bb_lower = safe_float(tech_row.get("bb_lower"))
+        close = safe_float(tech_row.get("close"))
 
         supertrend_col = [col for col in tech_row.index if col.startswith('supertrend_') and col.endswith('_dir')]
         supertrend_val = tech_row.get(supertrend_col[0]) if supertrend_col else None
         if isinstance(supertrend_val, str):
             supertrend_val = supertrend_val.lower() == 'true'
+        elif isinstance(supertrend_val, (bool, int)):
+            supertrend_val = bool(supertrend_val)
+        else:
+            supertrend_val = None
 
         indicator_summary = interpret_indicators(
-            round(rsi, 2), round(macd, 2), round(macd_signal, 2),
-            supertrend_val, round(adx, 2), round(atr, 2),
+            rsi, macd, macd_signal,
+            supertrend_val, adx, atr,
             bb_upper=bb_upper, bb_lower=bb_lower, close=close
         )
-    except:
+    except Exception as e:
+        print(f"[ERROR] Failed to interpret indicators: {e}")
         indicator_summary = "N/A"
 
     # Report formatting
@@ -210,6 +237,6 @@ def generate_reports_for_symbols(symbols, company_csv_path=None, tech_csv_path=N
         report = generate_report(symbol, company_csv_path, tech_csv_path)
         if report:
             reports.append(report)
-            if send_to_telegram:
-                send_message(report)
+            if send_to_telegram and chat_id:
+                send_message(chat_id, report)
     return reports

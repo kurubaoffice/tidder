@@ -69,7 +69,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(chat_id=chat_id, text=f"🔍 Processing {symbol}...")
 
-    success = run_pipeline_for_symbol(symbol)
+    success = run_pipeline_for_symbol(symbol, chat_id)
     if success:
         await context.bot.send_message(chat_id=chat_id, text=f"✅ Report sent for {symbol}")
     else:

@@ -1,58 +1,90 @@
+from nsepython import nse_eq
 import yfinance as yf
 import pandas as pd
-from nsepython import nse_eq  # Make sure: pip install nsepython
 from datetime import datetime
+print(f"[DEBUG] Using fetch_price_data from: {__file__}")
 
-def fetch_price_data(symbol: str, period: str = "6mo", interval: str = "1d") -> pd.DataFrame:
+def fetch_price_data(symbol: str, period: str = "9mo", interval: str = "1d") -> pd.DataFrame:
+    print(f"[DEBUG] Using fetch_price_data from: {__file__}")
+    print(f"[fetch_price_data] Trying yfinance for {symbol}...")
+    print(f"[DEBUG] Symbol type: {type(symbol)}, value: {symbol}")
+
+    df = pd.DataFrame()  # Initialize here to avoid "df not defined" errors
+
     try:
-        yf_symbol = symbol + ".NS"
-        ticker = yf.Ticker(yf_symbol)
-        df = ticker.history(period=period, interval=interval)
+        df = yf.download(symbol + ".NS", period=period, interval=interval, progress=False)
 
-        if not df.empty:
-            df.reset_index(inplace=True)
-            df.rename(columns={
-                "Date": "date",
-                "Open": "open",
-                "High": "high",
-                "Low": "low",
-                "Close": "close",
-                "Volume": "volume"
-            }, inplace=True)
-            df["symbol"] = symbol
-            df = df[["date", "symbol", "open", "high", "low", "close", "volume"]]
-            df.dropna(inplace=True)
+        if df.empty:
+            raise ValueError("YFinance returned empty DataFrame")
 
-            print(f"[fetch_price_data] ✅ Fetched from yfinance: {symbol}, rows: {len(df)}")
-            return df
-
+        # Normalize column names
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = ['_'.join(col).strip().lower() for col in df.columns]
         else:
-            print(f"[fetch_price_data] ⚠️ yfinance returned empty for {symbol}. Falling back to NSE...")
+            df.columns = [str(col).strip().lower() for col in df.columns]
 
-            nse_df = nse_eq(symbol)
-            if nse_df.empty:
-                print(f"[fetch_price_data] ❌ NSE data also empty for {symbol}")
-                return pd.DataFrame()
+        df.reset_index(inplace=True)
 
-            nse_df.reset_index(inplace=True)
-            nse_df.rename(columns={
-                'DATE': 'date',
-                'CLOSE_PRICE': 'close',
-                'OPEN_PRICE': 'open',
-                'HIGH_PRICE': 'high',
-                'LOW_PRICE': 'low',
-                'TOTAL_TRADED_QUANTITY': 'volume'
-            }, inplace=True)
-            nse_df['date'] = pd.to_datetime(nse_df['date'], errors='coerce')
-            nse_df["symbol"] = symbol
-            nse_df.sort_values("date", inplace=True)
+        # Rename known variants to standard
+        rename_map = {}
+        for col in df.columns:
+            if "open" in col and "open" not in rename_map:
+                rename_map[col] = "open"
+            elif "high" in col and "high" not in rename_map:
+                rename_map[col] = "high"
+            elif "low" in col and "low" not in rename_map:
+                rename_map[col] = "low"
+            elif "close" in col and "close" not in rename_map:
+                rename_map[col] = "close"
+            elif "volume" in col and "volume" not in rename_map:
+                rename_map[col] = "volume"
+            elif "date" in col.lower() and "date" not in rename_map:
+                rename_map[col] = "date"
 
-            final_df = nse_df[["date", "symbol", "open", "high", "low", "close", "volume"]]
-            final_df.dropna(inplace=True)
+        df.rename(columns=rename_map, inplace=True)
 
-            print(f"[fetch_price_data] ✅ Fetched from NSE: {symbol}, rows: {len(final_df)}")
-            return final_df
+        # Final validation
+        expected_cols = ["date", "open", "high", "low", "close", "volume"]
+        if not all(col in df.columns for col in expected_cols):
+            raise ValueError(f"[fetch_price_data] Missing expected columns: {expected_cols}. Found: {df.columns.tolist()}")
+
+        df["symbol"] = symbol
+        df = df[["date", "symbol", "open", "high", "low", "close", "volume"]]
+
+        if len(df) >= 30:
+            print(f"[fetch_price_data] ✅ YFinance OK: {symbol}, rows: {len(df)}")
+            return df
+        else:
+            print(f"[fetch_price_data] ⚠️ YFinance returned too few rows ({len(df)}). Falling back...")
 
     except Exception as e:
-        print(f"[fetch_price_data] ❌ Error fetching data for {symbol}: {e}")
-        return pd.DataFrame()
+        print(f"[fetch_price_data] ❌ YFinance error: {e}. Falling back...")
+
+    # === Fallback to NSE Python ===
+    try:
+        print(f"[fetch_price_data] 🔁 Trying fallback with nsepython for {symbol}")
+        raw_data = nse_eq(symbol)
+        historical = raw_data["priceInfo"]["historical"]
+        df = pd.DataFrame(historical)
+
+        df["date"] = pd.to_datetime(df["date"])
+        df.rename(columns={
+            "open": "open",
+            "dayHigh": "high",
+            "dayLow": "low",
+            "close": "close",
+            "totalTradedVolume": "volume"
+        }, inplace=True)
+        df["symbol"] = symbol
+        df = df[["date", "symbol", "open", "high", "low", "close", "volume"]]
+        df = df.sort_values("date")
+
+        print(f"[fetch_price_data] ✅ Fallback NSE OK: {symbol}, rows: {len(df)}")
+        return df
+    except Exception as e:
+        print(f"[fetch_price_data] ❌ NSE fallback also failed for {symbol}: {e}")
+
+    return df  # Will return empty DataFrame if both failed
+
+
+

@@ -38,7 +38,11 @@ def run_pipeline_for_symbol(symbol, chat_id=None):
 
         print(f"[3] Generating and sending report...")
         generate_reports_for_symbols([symbol], send_to_telegram=True, chat_id=chat_id)
+
         return True
+    except Exception as e:
+        print(f"[ERROR] Pipeline failed for {symbol}: {e}")
+        return False
     except Exception as e:
         print(f"[ERROR] Pipeline failed for {symbol}: {e}")
         return False
