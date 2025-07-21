@@ -16,12 +16,26 @@ def fetch_company_info(symbol):
     try:
         ticker = yf.Ticker(symbol + ".NS")
         info = ticker.info
+        fast_info = ticker.fast_info  # Added
+        hist = ticker.history(period='1d')  # Fallback if needed
+
+        # Try fetching current price from fast_info, then info, then history
+        current_price = (
+                fast_info.get("lastPrice") or
+                info.get("currentPrice") or
+                (hist['Close'][-1] if not hist.empty else None)
+        )
+        print(f"[DEBUG] fast_info.lastPrice = {fast_info.get('lastPrice')}")
+        print(f"[DEBUG] info.currentPrice = {info.get('currentPrice')}")
+        if not hist.empty:
+            print(f"[DEBUG] history Close price = {hist['Close'][-1]}")
         info_cleaned = {
             "symbol": symbol.upper(),
             "companyName": info.get("longName"),
             "sector": info.get("sector", "N/A"),
             "industry": info.get("industry", "N/A"),
             "marketCap": info.get("marketCap"),
+            "currentPrice": info.get("currentPrice"),
             "pe": info.get("trailingPE"),
             "bookValue": info.get("bookValue"),
             "faceValue": info.get("faceValue", "N/A"),

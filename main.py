@@ -1,6 +1,6 @@
 import sys
 import os
-
+import pandas as pd
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from modules.data_fetcher.fetch_company_info import save_company_info
@@ -22,7 +22,7 @@ def run_pipeline_for_company_name(company_name):
         save_company_info([symbol])
 
         print(f"[3] Generating and sending report for {symbol}")
-        generate_reports_for_symbols([symbol], send_to_telegram=True)
+        #generate_reports_for_symbols([symbol], send_to_telegram=True)
         return True
     except Exception as e:
         print(f"[ERROR] Pipeline failed for {symbol}: {e}")

@@ -7,6 +7,11 @@ import pandas as pd
 import os
 from dotenv import load_dotenv
 
+from telegram import Bot
+from telegram.constants import ParseMode
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+
+
 
 load_dotenv()
 token = os.getenv("TELEGRAM_TOKEN")

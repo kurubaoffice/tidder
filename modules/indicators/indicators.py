@@ -31,7 +31,6 @@ def apply_all_indicators(df: pd.DataFrame, config: dict) -> pd.DataFrame:
         for k, v in config.items():
             print(f"  {k}: {v} (type: {type(v)})")
 
-        # 🔍 Identify 'close' column dynamically
         close_col = next((col for col in df.columns if col.startswith("close")), None)
         if not close_col:
             raise ValueError("No valid 'close' column found in DataFrame")
@@ -40,8 +39,6 @@ def apply_all_indicators(df: pd.DataFrame, config: dict) -> pd.DataFrame:
         # RSI
         if config.get("rsi", True):
             rsi_period = config.get("rsi_period", 14)
-            if not isinstance(rsi_period, int):
-                raise ValueError(f"rsi_period must be int, got {type(rsi_period)}")
             rsi = ta.momentum.RSIIndicator(close=df[close_col], window=rsi_period)
             df[f"rsi_{rsi_period}"] = rsi.rsi()
             print(f"[DEBUG] RSI applied with period: {rsi_period}")
@@ -51,8 +48,6 @@ def apply_all_indicators(df: pd.DataFrame, config: dict) -> pd.DataFrame:
             macd_fast = config.get("macd_fast", 12)
             macd_slow = config.get("macd_slow", 26)
             macd_signal = config.get("macd_signal", 9)
-            if not all(isinstance(x, int) for x in [macd_fast, macd_slow, macd_signal]):
-                raise ValueError("MACD params must be integers")
             macd = ta.trend.MACD(
                 close=df[close_col],
                 window_fast=macd_fast,
@@ -67,8 +62,6 @@ def apply_all_indicators(df: pd.DataFrame, config: dict) -> pd.DataFrame:
         if config.get("bollinger_bands", True):
             bb_window = config.get("bb_window", 20)
             bb_std = config.get("bb_std", 2)
-            if not isinstance(bb_window, int) or not isinstance(bb_std, (int, float)):
-                raise ValueError("Bollinger Band params must be numeric")
             bb = ta.volatility.BollingerBands(
                 close=df[close_col],
                 window=bb_window,
@@ -78,26 +71,58 @@ def apply_all_indicators(df: pd.DataFrame, config: dict) -> pd.DataFrame:
             df["bb_lower"] = bb.bollinger_lband()
             print(f"[DEBUG] Bollinger Bands applied: window={bb_window}, std={bb_std}")
 
-        # ✅ DEBUG after calculation
+        # ✅ ATR
+        if config.get("atr", True):
+            atr_window = config.get("atr_period", 14)
+            atr = ta.volatility.AverageTrueRange(
+                high=df['high'], low=df['low'], close=df[close_col], window=atr_window
+            )
+            df[f"atr_{atr_window}"] = atr.average_true_range()
+            print(f"[DEBUG] ATR applied with window={atr_window}")
+
+        # ✅ ADX
+        if config.get("adx", True):
+            adx_window = config.get("adx_period", 14)
+            adx = ta.trend.ADXIndicator(
+                high=df['high'], low=df['low'], close=df[close_col], window=adx_window
+            )
+            df[f"adx_{adx_window}"] = adx.adx()
+            print(f"[DEBUG] ADX applied with window={adx_window}")
+
+        # ✅ Supertrend
+        if config.get("supertrend", True):
+            st_window = config.get("supertrend_period", 7)
+            st_multiplier = config.get("supertrend_multiplier", 3)
+            atr = ta.volatility.AverageTrueRange(
+                high=df['high'], low=df['low'], close=df[close_col], window=st_window
+            )
+            atr_val = atr.average_true_range()
+            hl2 = (df['high'] + df['low']) / 2
+            upperband = hl2 + (st_multiplier * atr_val)
+            lowerband = hl2 - (st_multiplier * atr_val)
+
+            direction = [True]  # First value
+            for i in range(1, len(df)):
+                if df[close_col].iloc[i] > upperband.iloc[i - 1]:
+                    direction.append(True)
+                elif df[close_col].iloc[i] < lowerband.iloc[i - 1]:
+                    direction.append(False)
+                else:
+                    direction.append(direction[-1])
+            df[f"supertrend_{st_window}_dir"] = direction
+            print(f"[DEBUG] Supertrend applied: window={st_window}, multiplier={st_multiplier}")
+
+
+        # ✅ Final DEBUG
         print("[DEBUG] Columns after indicator application:", df.columns)
         print(df.tail(2))
-        # ✅ DEBUG after calculation — safe checks
-        for col in ["rsi_14", "macd", "macd_signal", "bb_upper", "bb_lower"]:
-            if col in df.columns:
-                print(f"[DEBUG] Non-null {col}: {df[col].notna().sum()}")
-            else:
-                print(f"[DEBUG] {col} not found in DataFrame")
-
-        if f"rsi_{rsi_period}" in df.columns:
-            print(f"[DEBUG] First 5 non-null RSI values:")
-            print(df[df[f"rsi_{rsi_period}"].notnull()].head())
-            print(f"[DEBUG] Total non-null RSI count:", df[f"rsi_{rsi_period}"].notnull().sum())
 
         return df
 
     except Exception as e:
         print(f"[apply_all_indicators] Failed to apply indicators: {e}")
         raise
+
 
 
 def process_and_save_indicators(symbol: str, config: dict = None) -> str:

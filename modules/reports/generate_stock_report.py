@@ -1,25 +1,87 @@
-import os
-import math
-import pandas as pd
-import os
-from dotenv import load_dotenv
 from modules.utils.telegram_sender import send_message
 import os
 from dotenv import load_dotenv
+import numpy as np
 
 load_dotenv()
 DEFAULT_CHAT_ID = os.getenv("CHAT_ID")
 
+import os
 
-import math
 import pandas as pd
+import numpy as np
+import math
 
-def interpret_indicators(rsi, macd, macd_signal, supertrend_dir=None, adx=None, atr=None, bb_upper=None, bb_lower=None, close=None):
+def interpret_indicators(rsi, macd, macd_signal, supertrend_dir=None, adx=None, atr=None,
+                         bb_upper=None, bb_lower=None, close=None, tech_row=None):
     sentiment = []
+    insights = []
+    summary = []
 
-    # Safeguard utility
     def is_valid(val):
         return val is not None and not pd.isna(val) and not (isinstance(val, float) and math.isnan(val))
+
+    try:
+        # Extract from tech_row if values are not directly passed
+        if tech_row is not None:
+            print(f"[DEBUG] Last row in interpret_indicators:\n{tech_row}")
+
+            # --- Supertrend ---
+            if supertrend_dir is None:
+                st_cols = [col for col in tech_row.index if col.startswith("supertrend_") and col.endswith("_dir")]
+                if st_cols:
+                    raw_val = tech_row.get(st_cols[0])
+                    print(f"[DEBUG] Supertrend column: {st_cols[0]}, Raw value: {raw_val}")
+                    if isinstance(raw_val, str):
+                        supertrend_dir = raw_val.strip().lower() == 'true'
+                    elif isinstance(raw_val, (bool, int, float, np.bool_)):
+                        supertrend_dir = bool(raw_val)
+                    print(f"[DEBUG] Final Supertrend direction: {supertrend_dir}")
+                    print(f"[DEBUG] tech_row keys: {list(tech_row.index)}")
+                    print("[DEBUG] tech_row columns:", list(tech_row.index if tech_row is not None else []))
+
+                # --- ADX ---
+                if adx is None:
+                    print(f"[DEBUG] tech_row keys: {list(tech_row.index)}")
+                    adx_cols = [col for col in tech_row.index if 'adx' in col.lower()]
+                    print(f"[DEBUG] Found ADX columns: {adx_cols}")
+                    if adx_cols:
+                        raw_adx = tech_row.get(adx_cols[0])
+                        print(f"[DEBUG] Raw ADX = {raw_adx} | type = {type(raw_adx)}")
+                        if is_valid(raw_adx):
+                            adx = float(raw_adx)
+                            print(f"[DEBUG] Final ADX extracted = {adx}")
+                        else:
+                            print("[WARN] ADX value was invalid or NaN.")
+                    else:
+                        print("[WARN] No ADX column found in tech_row.")
+
+    finally:
+        print("✅ Finished processing Supertrend and ADX.")
+
+    # --- Supertrend Interpretation ---
+    if supertrend_dir is not None:
+        direction = "Bullish" if supertrend_dir else "Bearish"
+        sentiment.append(f"Supertrend: {direction} Trend")
+        summary.append(f"{'🔼' if supertrend_dir else '🔽'} Supertrend indicates **{direction}**.")
+    else:
+        sentiment.append("Supertrend: Data not available")
+        summary.append("⚠️ Supertrend not available.")
+
+    # --- ADX Interpretation ---
+    if is_valid(adx):
+        if adx < 20:
+            sentiment.append(f"ADX ({adx:.2f}): Weak trend – Market lacks clear direction")
+            summary.append(f"😐 ADX ({adx:.1f}) suggests a **weak trend**.")
+        elif 20 <= adx <= 40:
+            sentiment.append(f"ADX ({adx:.2f}): Developing trend – Growing strength")
+            summary.append(f"📊 ADX ({adx:.1f}) indicates a **moderate trend**.")
+        else:
+            sentiment.append(f"ADX ({adx:.2f}): Strong trend – Trend strength is high")
+            summary.append(f"💪 ADX ({adx:.1f}) indicates a **strong trend**.")
+    else:
+        sentiment.append("ADX: Data not available")
+        summary.append("⚠️ ADX not available.")
 
     # --- RSI Interpretation ---
     if is_valid(rsi):
@@ -45,24 +107,6 @@ def interpret_indicators(rsi, macd, macd_signal, supertrend_dir=None, adx=None, 
             sentiment.append(f"MACD ({macd:.2f}): Neutral – No clear crossover")
     else:
         sentiment.append("MACD: Data not available")
-
-    # --- Supertrend Interpretation ---
-    if supertrend_dir is not None:
-        direction = "Bullish" if supertrend_dir else "Bearish"
-        sentiment.append(f"Supertrend: {direction} Trend")
-    else:
-        sentiment.append("Supertrend: Data not available")
-
-    # --- ADX Interpretation ---
-    if is_valid(adx):
-        if adx < 20:
-            sentiment.append(f"ADX ({adx:.2f}): Weak trend – Market lacks clear direction")
-        elif 20 <= adx <= 40:
-            sentiment.append(f"ADX ({adx:.2f}): Developing trend – Growing strength")
-        else:
-            sentiment.append(f"ADX ({adx:.2f}): Strong trend – Trend strength is high")
-    else:
-        sentiment.append("ADX: Data not available")
 
     # --- ATR Interpretation ---
     if is_valid(atr):
@@ -93,10 +137,9 @@ def interpret_indicators(rsi, macd, macd_signal, supertrend_dir=None, adx=None, 
     else:
         sentiment.append("Bollinger Bands: Data not available")
 
-    return "\n\n".join(sentiment)
+    return "\n".join(sentiment + [""] + summary)
 
-
-
+    # return "\n\n".join(sentiment)
 
 
 def format_number(value):
@@ -113,13 +156,15 @@ def format_number(value):
     except:
         return "N/A"
 
-def predict_stock_signal(rsi, macd, macd_signal, supertrend_dir=None, adx=None, atr=None, bb_upper=None, bb_lower=None, close=None):
+
+def predict_stock_signal(rsi, macd, macd_signal, supertrend_dir=None, adx=None, atr=None, bb_upper=None, bb_lower=None,
+                         close=None):
     score = 0
     reasons = []
 
     # ✅ Check for missing critical values
     indicators = [rsi, macd, macd_signal, supertrend_dir, adx, bb_upper, bb_lower, close]
-    if any(val is None or pd.isna(val) for val in indicators[:3]):  # RSI, MACD, MACD signal are minimum required
+    if any(val is None or pd.isna(val) for val in indicators[:4]):  # RSI, MACD, MACD signal are minimum required
         return "📉 No Signal: Insufficient data", ["Missing RSI/MACD data"]
 
     # RSI
@@ -179,7 +224,8 @@ def predict_stock_signal(rsi, macd, macd_signal, supertrend_dir=None, adx=None, 
     return signal, reasons
 
 
-def generate_verdict(rsi=None, macd=None, macd_signal=None, supertrend=None, adx=None, atr=None, bb_upper=None, bb_lower=None, close=None):
+def generate_verdict(rsi=None, macd=None, macd_signal=None, supertrend=None, adx=None, atr=None, bb_upper=None,
+                     bb_lower=None, close=None):
     score = 0
     total_possible = 0
     comments = []
@@ -247,12 +293,22 @@ def generate_verdict(rsi=None, macd=None, macd_signal=None, supertrend=None, adx
     return f"{signal} (Confidence: {confidence}%)"
 
 
-
 def format_percentage(value):
     try:
         return f"{float(value) * 100:.2f}%"
     except:
         return "N/A"
+
+
+def extract_float(row, key):
+    try:
+        val = row.get(key, None)
+        if val is None or (isinstance(val, float) and math.isnan(val)):
+            return None
+        return round(float(val), 2)
+    except:
+        return None
+
 
 def generate_report(symbol, company_csv_path=None, tech_csv_path=None):
     """
@@ -270,6 +326,26 @@ def generate_report(symbol, company_csv_path=None, tech_csv_path=None):
         print(f"Missing CSVs. Ensure both company_info.csv and technical_indicators.csv are present.")
         return None
 
+    # Load data
+    company_df = pd.read_csv(company_csv_path)
+    tech_df = pd.read_csv(tech_csv_path)
+
+    # Filter for the symbol (case-insensitive)
+    company_info = company_df[company_df["symbol"].str.upper() == symbol.upper()]
+    tech_info = tech_df[tech_df["symbol"].str.upper() == symbol.upper()]
+
+    if company_info.empty or tech_info.empty:
+        return f"No data found for symbol: {symbol}"
+
+    latest_tech = tech_info.sort_values("date").iloc[-1]  # last row for most recent indicators
+
+    # Extract indicators
+    rsi = latest_tech.get("rsi_14", "N/A")
+    macd = latest_tech.get("macd", "N/A")
+    macd_signal = latest_tech.get("macd_signal", "N/A")
+    bb_upper = latest_tech.get("bb_upper", "N/A")
+    bb_lower = latest_tech.get("bb_lower", "N/A")
+    close_price = latest_tech.get("close", "N/A")
 
     # Read both CSVs
     comp_df = pd.read_csv(company_csv_path)
@@ -289,7 +365,7 @@ def generate_report(symbol, company_csv_path=None, tech_csv_path=None):
         return None
 
     comp_row = comp_row.iloc[0]
-    tech_row = tech_row.iloc[0]
+    tech_row = tech_row.sort_values("date").iloc[-1]
 
     # Extract indicators for summary
     try:
@@ -303,20 +379,31 @@ def generate_report(symbol, company_csv_path=None, tech_csv_path=None):
         rsi = safe_float(tech_row.get("rsi_14"))
         macd = safe_float(tech_row.get("macd"))
         macd_signal = safe_float(tech_row.get("macd_signal"))
-        adx = safe_float(tech_row.get("adx"))
+        supertrend = tech_row.get("supertrend_direction")
+        adx = extract_float(tech_row, "adx_14")
         atr = safe_float(tech_row.get("atr_14"))
         bb_upper = safe_float(tech_row.get("bb_upper"))
         bb_lower = safe_float(tech_row.get("bb_lower"))
         close = safe_float(tech_row.get("close"))
 
+        # --- Extract Supertrend Direction (safe bool conversion) ---
+        supertrend_val = None
         supertrend_col = [col for col in tech_row.index if col.startswith('supertrend_') and col.endswith('_dir')]
-        supertrend_val = tech_row.get(supertrend_col[0]) if supertrend_col else None
-        if isinstance(supertrend_val, str):
-            supertrend_val = supertrend_val.lower() == 'true'
-        elif isinstance(supertrend_val, (bool, int)):
-            supertrend_val = bool(supertrend_val)
-        else:
-            supertrend_val = None
+        print("🛠️ Supertrend matching columns:", supertrend_col)
+        if supertrend_col:
+            raw_val = tech_row.get(supertrend_col[0])
+            print("📦 Raw supertrend_val from DataFrame:", raw_val, "| type:", type(raw_val))
+            try:
+                if isinstance(raw_val, str):
+                    supertrend_val = raw_val.strip().lower() == 'true'
+                elif isinstance(raw_val, (bool, int, np.bool_)):  # <-- updated this line
+                    supertrend_val = bool(raw_val)
+                else:
+                    print("⚠️ Unrecognized type for supertrend_val")
+            except Exception as e:
+                print("❌ Error processing supertrend_val:", e)
+        print("✅ Final processed supertrend_val (bool):", supertrend_val)
+        print(f"[DEBUG] interpret_indicators: ADX value received = {adx} | type: {type(adx)}")
 
         indicator_summary = interpret_indicators(
             rsi, macd, macd_signal,
@@ -348,6 +435,11 @@ def generate_report(symbol, company_csv_path=None, tech_csv_path=None):
             close=close
         )
 
+        def format_number(val):
+            if val is None or pd.isna(val):
+                return "N/A"
+            return f"{val:,.2f}"
+
         # Append to report
         indicator_summary += f"\n\n🔮 Signal: {signal}"
         if reasons:
@@ -369,6 +461,7 @@ Stock Report: {symbol}
  Sector               : {comp_row.get('sector', 'N/A')}
  Industry             : {comp_row.get('industry', 'N/A')}
  Market Cap           : {format_number(comp_row.get('marketcap'))}
+Current Price : {format_number(comp_row.get("currentPrice"))}
  P/E Ratio            : {comp_row.get('pe', 'N/A')}
  Book Value           ; {comp_row.get('bookvalue', 'N/A')}
  ROE                  ; {format_percentage(comp_row.get('roe'))}
@@ -381,7 +474,7 @@ Stock Report: {symbol}
  MACD                : {round(float(tech_row.get('macd', 0.0)), 2)}
  MACD Signal         : {round(float(tech_row.get('macd_signal', 0.0)), 2)}
  Supertrend          : {'🟢 Buy' if supertrend_val else '🔴 Sell' if supertrend_val is not None else '⚪ N/A'}
- ADX Strength         : {round(float(tech_row.get('adx', 0.0)), 2)}
+ ADX Strength         : {round(float(tech_row.get('adx_14', 0.0)), 2)}
  BB Upper Band        : {round(float(tech_row.get('bb_upper', 0.0)), 2)}
  BB Lower Band        : {round(float(tech_row.get('bb_lower', 0.0)), 2)}
  ATR (Volatility)     ; {round(float(tech_row.get('atr_14', 0.0)), 2)}
@@ -396,7 +489,9 @@ Source: Yahoo Finance
 
     return report
 
-def generate_reports_for_symbols(symbols, company_csv_path=None, tech_csv_path=None, send_to_telegram=False, chat_id=None):
+
+def generate_reports_for_symbols(symbols, company_csv_path=None, tech_csv_path=None, send_to_telegram=False,
+                                 chat_id=None):
     reports = []
     for symbol in symbols:
         print(f"Generating report for: {symbol}")
