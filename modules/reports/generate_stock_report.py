@@ -52,45 +52,45 @@ def interpret_indicators(rsi, macd, macd_signal, supertrend_dir=None, adx=None, 
                             adx = float(raw_adx)
                             print(f"[DEBUG] Final ADX extracted = {adx}")
                         else:
-                            print("[WARN] ADX value was invalid or NaN.")
+                            print("[WARN] ADX value was invalid or NaN.\n")
                     else:
-                        print("[WARN] No ADX column found in tech_row.")
+                        print("[WARN] No ADX column found in tech_row.\n")
 
     finally:
-        print("✅ Finished processing Supertrend and ADX.")
+        print("✅ Finished processing Supertrend and ADX.\n")
 
     # --- Supertrend Interpretation ---
     if supertrend_dir is not None:
         direction = "Bullish" if supertrend_dir else "Bearish"
-        sentiment.append(f"Supertrend: {direction} Trend")
-        summary.append(f"{'🔼' if supertrend_dir else '🔽'} Supertrend indicates **{direction}**.")
+        sentiment.append(f"Supertrend: {direction} Trend\n")
+        summary.append(f"{'🔼' if supertrend_dir else '🔽'} Supertrend indicates **{direction}**.\n")
     else:
-        sentiment.append("Supertrend: Data not available")
-        summary.append("⚠️ Supertrend not available.")
+        sentiment.append("Supertrend: Data not available\n")
+        summary.append("⚠️ Supertrend not available.\n")
 
     # --- ADX Interpretation ---
     if is_valid(adx):
         if adx < 20:
-            sentiment.append(f"ADX ({adx:.2f}): Weak trend – Market lacks clear direction")
-            summary.append(f"😐 ADX ({adx:.1f}) suggests a **weak trend**.")
+            sentiment.append(f"ADX ({adx:.2f}): Weak trend – Market lacks clear direction\n")
+            summary.append(f"😐 ADX ({adx:.1f}) suggests a **weak trend**.\n")
         elif 20 <= adx <= 40:
-            sentiment.append(f"ADX ({adx:.2f}): Developing trend – Growing strength")
-            summary.append(f"📊 ADX ({adx:.1f}) indicates a **moderate trend**.")
+            sentiment.append(f"ADX ({adx:.2f}): Developing trend – Growing strength\n")
+            summary.append(f"📊 ADX ({adx:.1f}) indicates a **moderate trend**.\n")
         else:
-            sentiment.append(f"ADX ({adx:.2f}): Strong trend – Trend strength is high")
-            summary.append(f"💪 ADX ({adx:.1f}) indicates a **strong trend**.")
+            sentiment.append(f"ADX ({adx:.2f}): Strong trend – Trend strength is high\n")
+            summary.append(f"💪 ADX ({adx:.1f}) indicates a **strong trend**.\n")
     else:
-        sentiment.append("ADX: Data not available")
+        sentiment.append("ADX: Data not available\n")
         summary.append("⚠️ ADX not available.")
 
     # --- RSI Interpretation ---
     if is_valid(rsi):
         if rsi > 70:
-            sentiment.append(f"RSI ({rsi:.2f}): Overbought – Possible price correction")
+            sentiment.append(f"RSI ({rsi:.2f}): Overbought – Possible price correction\n")
         elif rsi < 30:
-            sentiment.append(f"RSI ({rsi:.2f}): Oversold – Possible rebound")
+            sentiment.append(f"RSI ({rsi:.2f}): Oversold – Possible rebound\n")
         else:
-            sentiment.append(f"RSI ({rsi:.2f}): Neutral – Stock is not overbought/oversold")
+            sentiment.append(f"RSI ({rsi:.2f}): Neutral – Stock is not overbought/oversold\n")
     else:
         sentiment.append("RSI: Data not available")
 
@@ -98,26 +98,26 @@ def interpret_indicators(rsi, macd, macd_signal, supertrend_dir=None, adx=None, 
     if is_valid(macd) and is_valid(macd_signal):
         if macd > macd_signal:
             if macd < 0:
-                sentiment.append(f"MACD ({macd:.2f}): Bullish crossover – Negative zone, but momentum improving")
+                sentiment.append(f"MACD ({macd:.2f}): Bullish crossover – Negative zone, but momentum improving\n")
             else:
-                sentiment.append(f"MACD ({macd:.2f}): Bullish crossover – Positive zone, strong momentum")
+                sentiment.append(f"MACD ({macd:.2f}): Bullish crossover – Positive zone, strong momentum\n")
         elif macd < macd_signal:
-            sentiment.append(f"MACD ({macd:.2f}): Bearish crossover – Momentum weakening")
+            sentiment.append(f"MACD ({macd:.2f}): Bearish crossover – Momentum weakening\n")
         else:
-            sentiment.append(f"MACD ({macd:.2f}): Neutral – No clear crossover")
+            sentiment.append(f"MACD ({macd:.2f}): Neutral – No clear crossover\n")
     else:
-        sentiment.append("MACD: Data not available")
+        sentiment.append("MACD: Data not available\n")
 
     # --- ATR Interpretation ---
     if is_valid(atr):
         if atr < 1:
-            sentiment.append(f"ATR ({atr:.2f}): Low volatility – Stable price")
+            sentiment.append(f"ATR ({atr:.2f}): Low volatility – Stable price\n")
         elif atr < 5:
-            sentiment.append(f"ATR ({atr:.2f}): Moderate volatility – Watch for swings")
+            sentiment.append(f"ATR ({atr:.2f}): Moderate volatility – Watch for swings\n")
         else:
-            sentiment.append(f"ATR ({atr:.2f}): High volatility – Risky movement")
+            sentiment.append(f"ATR ({atr:.2f}): High volatility – Risky movement\n")
     else:
-        sentiment.append("ATR: Data not available")
+        sentiment.append("ATR: Data not available\n")
 
     # --- Bollinger Bands Interpretation ---
     if all(is_valid(v) for v in [bb_upper, bb_lower, close]):
@@ -127,15 +127,15 @@ def interpret_indicators(rsi, macd, macd_signal, supertrend_dir=None, adx=None, 
             bb_lower = round(bb_lower, 2)
 
             if close > bb_upper:
-                sentiment.append(f"Bollinger Bands: 🔴 Overbought (Close {close} > Upper {bb_upper})")
+                sentiment.append(f"\nBollinger Bands: 🔴 Overbought (Close {close} > Upper {bb_upper})")
             elif close < bb_lower:
-                sentiment.append(f"Bollinger Bands: 🟢 Oversold (Close {close} < Lower {bb_lower})")
+                sentiment.append(f"\nBollinger Bands: 🟢 Oversold (Close {close} < Lower {bb_lower})")
             else:
-                sentiment.append(f"Bollinger Bands: Within Normal Range (Close {close})")
+                sentiment.append(f"\nBollinger Bands: Within Normal Range (Close {close})")
         except Exception:
-            sentiment.append("Bollinger Bands: Calculation error")
+            sentiment.append("Bollinger Bands: Calculation error\n")
     else:
-        sentiment.append("Bollinger Bands: Data not available")
+        sentiment.append("Bollinger Bands: Data not available\n")
 
     return "\n".join(sentiment + [""] + summary)
 
@@ -165,23 +165,23 @@ def predict_stock_signal(rsi, macd, macd_signal, supertrend_dir=None, adx=None, 
     # ✅ Check for missing critical values
     indicators = [rsi, macd, macd_signal, supertrend_dir, adx, bb_upper, bb_lower, close]
     if any(val is None or pd.isna(val) for val in indicators[:4]):  # RSI, MACD, MACD signal are minimum required
-        return "📉 No Signal: Insufficient data", ["Missing RSI/MACD data"]
+        return "\n📉 No Signal: Insufficient data", ["Missing RSI/MACD data"]
 
     # RSI
     if rsi < 30:
         score += 1
-        reasons.append("RSI indicates oversold")
+        reasons.append("RSI indicates oversold\n")
     elif rsi > 70:
         score -= 1
-        reasons.append("RSI indicates overbought")
+        reasons.append("RSI indicates overbought\n")
 
     # MACD
     if macd > macd_signal:
         score += 1
-        reasons.append("MACD bullish crossover")
+        reasons.append("MACD bullish crossover\n")
     elif macd < macd_signal:
         score -= 1
-        reasons.append("MACD bearish crossover")
+        reasons.append("MACD bearish crossover\n")
 
     # Supertrend
     if supertrend_dir is not None and not pd.isna(supertrend_dir):
@@ -196,18 +196,18 @@ def predict_stock_signal(rsi, macd, macd_signal, supertrend_dir=None, adx=None, 
     if adx is not None and not pd.isna(adx):
         if adx > 40:
             score += 1
-            reasons.append("Strong trend confirmed by ADX")
+            reasons.append("Strong trend confirmed by ADX\n")
         elif adx < 20:
-            reasons.append("Weak trend by ADX")
+            reasons.append("Weak trend by ADX\n")
 
     # Bollinger Bands
     if all(v is not None and not pd.isna(v) for v in [bb_upper, bb_lower, close]):
         if close < bb_lower:
             score += 1
-            reasons.append("Price below lower Bollinger Band (Oversold)")
+            reasons.append("Price below lower Bollinger Band (Oversold)\n")
         elif close > bb_upper:
             score -= 1
-            reasons.append("Price above upper Bollinger Band (Overbought)")
+            reasons.append("Price above upper Bollinger Band (Overbought)\n")
 
     # Final decision
     if score >= 3:
@@ -366,7 +366,9 @@ def generate_report(symbol, company_csv_path=None, tech_csv_path=None):
 
     comp_row = comp_row.iloc[0]
     tech_row = tech_row.sort_values("date").iloc[-1]
-
+    print(f"[DEBUG] Loaded company info for: {symbol}")
+    print(f"[DEBUG] currentPrice: {comp_row.get('currentprice')} | type: {type(comp_row.get('currentprice'))}")
+    print(f"[DEBUG] marketCap: {comp_row.get('marketCap')}")
     # Extract indicators for summary
     try:
         def safe_float(val):
@@ -461,26 +463,26 @@ Stock Report: {symbol}
  Sector               : {comp_row.get('sector', 'N/A')}
  Industry             : {comp_row.get('industry', 'N/A')}
  Market Cap           : {format_number(comp_row.get('marketcap'))}
-Current Price : {format_number(comp_row.get("currentPrice"))}
+Current Price         : {format_number(comp_row.get('currentprice'))}
  P/E Ratio            : {comp_row.get('pe', 'N/A')}
- Book Value           ; {comp_row.get('bookvalue', 'N/A')}
- ROE                  ; {format_percentage(comp_row.get('roe'))}
+ Book Value           : {comp_row.get('bookvalue', 'N/A')}
+ ROE                  : {format_percentage(comp_row.get('roe'))}
  ROCE                 : {format_percentage(comp_row.get('roce'))}
- Total Debt           ; {format_number(comp_row.get('debt'))}
+ Total Debt           : {format_number(comp_row.get('debt'))}
 +----------------------+----------------------------+
           Technical Indicators                      
 +----------------------+----------------------------+
  RSI (14)             : {round(float(tech_row.get('rsi_14', 0.0)), 2)}
- MACD                : {round(float(tech_row.get('macd', 0.0)), 2)}
- MACD Signal         : {round(float(tech_row.get('macd_signal', 0.0)), 2)}
- Supertrend          : {'🟢 Buy' if supertrend_val else '🔴 Sell' if supertrend_val is not None else '⚪ N/A'}
+ MACD                 : {round(float(tech_row.get('macd', 0.0)), 2)}
+ MACD Signal          : {round(float(tech_row.get('macd_signal', 0.0)), 2)}
+ Supertrend           : {'🟢 Buy' if supertrend_val else '🔴 Sell' if supertrend_val is not None else '⚪ N/A'}
  ADX Strength         : {round(float(tech_row.get('adx_14', 0.0)), 2)}
  BB Upper Band        : {round(float(tech_row.get('bb_upper', 0.0)), 2)}
  BB Lower Band        : {round(float(tech_row.get('bb_lower', 0.0)), 2)}
- ATR (Volatility)     ; {round(float(tech_row.get('atr_14', 0.0)), 2)}
+ ATR (Volatility)     : {round(float(tech_row.get('atr_14', 0.0)), 2)}
 +----------------------+----------------------------+
 
-      📊 Technical Summary
+             📊 Technical Summary
 +----------------------+----------------------------+
 {indicator_summary}
 

@@ -35,7 +35,7 @@ def fetch_company_info(symbol):
             "sector": info.get("sector", "N/A"),
             "industry": info.get("industry", "N/A"),
             "marketCap": info.get("marketCap"),
-            "currentPrice": info.get("currentPrice"),
+            "currentPrice": current_price,
             "pe": info.get("trailingPE"),
             "bookValue": info.get("bookValue"),
             "faceValue": info.get("faceValue", "N/A"),
